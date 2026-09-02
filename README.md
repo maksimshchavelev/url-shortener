@@ -28,6 +28,10 @@ Other:
 
 The [OpenAPI](openapi.yaml) specification is available
 
+## Try shortener
+
+Currently, the URL shortener is available at `s.servix.dev`
+
 ## Building
 
 To build the project, you'll need cargo and the `rustc` compiler,
