@@ -1,0 +1,19 @@
+services:
+  database:
+    image: postgres:18
+    container_name: postgres-dev
+    restart: unless-stopped
+
+    volumes:
+      - "postgres_dev_volume:/var/lib/postgresql"
+
+    environment:
+      POSTGRES_USER: url_shortener
+      POSTGRES_PASSWORD: url_shortener
+      POSTGRES_DB: url_shortener
+
+    ports:
+      - "55432:5432"
+
+volumes:
+  postgres_dev_volume:

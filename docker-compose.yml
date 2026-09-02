@@ -1,0 +1,52 @@
+# Environment variables:
+# - SHORTENER_LOG_LEVEL - log level (trace / debug / info / warn / error / off), 'info' by default
+# - SHORTENER_DATABASE_USER - User of shortener's database
+# - SHORTENER_DATABASE_PASSWORD - Shortener's database password
+
+# Example usage:
+# SHORTENER_DATABASE_USER=admin SHORTENER_DATABASE_PASSWORD=123456 docker compose up -d
+
+services:
+  # ----- BACKEND -----
+  url-shortener:
+    build: ./
+    container_name: url-shortener
+    restart: unless-stopped
+
+    environment:
+      SHORTENER_DATABASE_URL: "postgres://${SHORTENER_DATABASE_USER}:${SHORTENER_DATABASE_PASSWORD}@database:5432/url_shortener"
+      SHORTENER_SERVER_PORT: 4040
+      RUST_LOG: ${SHORTENER_LOG_LEVEL:-info}
+
+      SHORTENER_LISTEN_IP: 0.0.0.0
+
+    ports:
+      # Set to 4040:4040 to make the service listen to any address
+      - "127.0.0.1:4040:4040" # <EXTERNAL PORT> : <INTERNAL PORT>
+
+    depends_on:
+      database:
+        condition: service_healthy
+
+  # ----- DATABASE -----
+  database:
+    image: postgres:18
+    container_name: url-shortener-db
+    restart: unless-stopped
+
+    volumes:
+      - "url-shortener-db-volume:/var/lib/postgresql"
+
+    environment:
+      POSTGRES_USER: ${SHORTENER_DATABASE_USER}
+      POSTGRES_PASSWORD: ${SHORTENER_DATABASE_PASSWORD}
+      POSTGRES_DB: url_shortener
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${SHORTENER_DATABASE_USER} -d url_shortener"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  url-shortener-db-volume:

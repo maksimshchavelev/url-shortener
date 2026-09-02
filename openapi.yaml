@@ -1,0 +1,218 @@
+openapi: 3.1.0
+
+info:
+  title: URL Shortener API
+  description: |
+    API for creating short URLs and redirecting users
+    to the original URLs.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:4040
+    description: Local development server
+
+paths:
+  /create:
+    post:
+      summary: Create a short URL
+      description: |
+        Generates a unique short code for the provided URL.
+
+        The generated code can then be used with the
+        `/{code}` endpoint to redirect to the original URL.
+      operationId: createShortUrl
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLinkRequest'
+            example:
+              url: https://example.com/some/long/url
+
+      responses:
+        '201':
+          description: Short URL created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateLinkResponse'
+              example:
+                url: https://example.com/some/long/url
+                code: aB3xK9qZ
+
+        '400':
+          description: Invalid URL or short code
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidUrl:
+                  summary: Invalid URL
+                  value:
+                    type: invalid_url
+                    title: Invalid URL
+                    detail: Provided URL is incorrect. Only http or https schemas are allowed and schema must be lower-cased
+
+                shortCodeTooLong:
+                  summary: Short code is too long
+                  value:
+                    type: invalid_code
+                    title: Short code is too long
+                    detail: Provided short code is too long
+
+        '409':
+          description: Generated short code already exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: conflict
+                title: Duplicate code
+                detail: The generated short code is already taken. Please try again.
+
+        '413':
+          description: URL is too long
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: invalid_url
+                title: URL is too long
+                detail: Provided URL is too long
+
+        '500':
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: internal
+                title: Internal Server Error
+                detail: An unexpected error occurred on the server. Please try again later.
+
+  /{code}:
+    get:
+      summary: Redirect to the original URL
+      description: |
+        Resolves a short code and redirects the client to the
+        corresponding original URL.
+
+        The endpoint returns a temporary redirect.
+      operationId: redirectToOriginalUrl
+
+      parameters:
+        - name: code
+          in: path
+          required: true
+          description: Short URL code
+          schema:
+            type: string
+            maxLength: 8
+            example: aB3xK9qZ
+
+      responses:
+        '307':
+          description: Temporary redirect to the original URL
+          headers:
+            Location:
+              description: Original URL
+              required: true
+              schema:
+                type: string
+                format: uri
+                example: https://example.com/some/long/url
+
+        '400':
+          description: Short code is too long
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: invalid_code
+                title: Short code is too long
+                detail: Provided short code is too long
+
+        '404':
+          description: Short code not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: url_not_found
+                title: URL not found
+                detail: The requested short code does not exist
+
+        '500':
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: internal
+                title: Internal Server Error
+                detail: An unexpected error occurred on the server. Please try again later.
+
+components:
+  schemas:
+    CreateLinkRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: |
+            Original URL that should be shortened.
+            Only HTTP and HTTPS URLs are accepted.
+          example: https://example.com/some/long/url
+
+    CreateLinkResponse:
+      type: object
+      required:
+        - url
+        - code
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Original URL
+          example: https://example.com/some/long/url
+
+        code:
+          type: string
+          maxLength: 8
+          description: Generated short code
+          example: aB3xK9qZ
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - detail
+      properties:
+        type:
+          type: string
+          description: Machine-readable error type
+          example: invalid_url
+
+        title:
+          type: string
+          description: Short human-readable error title
+          example: Invalid URL
+
+        detail:
+          type: string
+          description: Detailed explanation of the error
+          example: Provided URL is incorrect. Only http or https schemas are allowed and schema must be lower-cased
