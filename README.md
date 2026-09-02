@@ -32,6 +32,11 @@ The [OpenAPI](openapi.yaml) specification is available
 
 Currently, the URL shortener is available at [s.servix.dev](https://s.servix.dev)
 
+## Using CLI to generate short links
+
+You can use [short](https://github.com/maksimshchavelev/short). 
+It's a CLI tool for generating short links from the terminal.
+
 ## Building
 
 To build the project, you'll need cargo and the `rustc` compiler,
