@@ -30,7 +30,7 @@ The [OpenAPI](openapi.yaml) specification is available
 
 ## Try shortener
 
-Currently, the URL shortener is available at [s.servix.dev](`s.servix.dev`)
+Currently, the URL shortener is available at [s.servix.dev](https://s.servix.dev)
 
 ## Building
 
