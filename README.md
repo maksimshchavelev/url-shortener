@@ -62,7 +62,7 @@ Before running the program, set the following environment variables:
   `postgres://url_shortener:url_shortener@localhost:5432/url_shortener`
 - `RUST_LOG` - Logging Level (optional) - `trace` / `debug` / `info` / `warn` / `error` / `off`
 
-## Running via docker compose
+## Running and building via docker compose
 
 Before running the program, set the following environment variables:
 
@@ -79,6 +79,12 @@ do not use the login and password from this example):
 ```
 SHORTENER_DATABASE_USER=admin SHORTENER_DATABASE_PASSWORD=secret docker compose up -d
 ```
+
+This command can build the image if it hasn't been built yet. If you need to rebuild the 
+image, run the command above with the `--build` flag.
+
+> For actual use, it's best to create a separate .env file; otherwise, your passwords 
+> might end up in the bash history!
 
 ## Development
 
