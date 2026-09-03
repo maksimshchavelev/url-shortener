@@ -1,4 +1,4 @@
-use crate::domain::{Error, OriginalUrl, ShortCode};
+use crate::domain::{Error, FetchResult, OriginalUrl, ShortCode};
 use async_trait::async_trait;
 
 /// Describes service that working with links. It's useful if
@@ -14,5 +14,5 @@ pub trait LinkService: Send + Sync {
     /// Fetch original URL by short code
     /// # Returns
     /// Original URL related with `code` or `domain::Error`
-    async fn fetch_original_url(&self, code: ShortCode) -> Result<OriginalUrl, Error>;
+    async fn fetch_original_url(&self, code: ShortCode) -> Result<FetchResult, Error>;
 }

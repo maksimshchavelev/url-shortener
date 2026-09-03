@@ -1,4 +1,4 @@
-use crate::domain::{Error, OriginalUrl, Repository, ShortCode};
+use crate::domain::{Error, FetchResult, OriginalUrl, Repository, ShortCode};
 use async_trait::async_trait;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use std::time::Duration;
@@ -36,14 +36,23 @@ impl PostgresRepository {
 
 #[async_trait]
 impl Repository for PostgresRepository {
-    async fn fetch_url(&self, code: ShortCode) -> Result<OriginalUrl, Error> {
-        let record = sqlx::query!("SELECT url FROM links WHERE code = $1", code.0)
+    async fn fetch_url(&self, code: ShortCode) -> Result<FetchResult, Error> {
+        let record = sqlx::query!("SELECT id, code, url, clicks, clicks_limit, created_at, expires_at, created_ip FROM links WHERE code = $1", code.0)
             .fetch_optional(&self.pool)
             .await
             .map_err(Error::from_internal)?;
 
         match record {
-            Some(url) => Ok(OriginalUrl(url.url)),
+            Some(record) => Ok(FetchResult {
+                id: record.id,
+                clicks: record.clicks,
+                clicks_limit: record.clicks_limit,
+                created_at: record.created_at,
+                expires_at: record.expires_at,
+                code: ShortCode(record.code),
+                created_ip: record.created_ip,
+                url: OriginalUrl(record.url),
+            }),
             None => Err(Error::URLNotFound),
         }
     }
@@ -120,7 +129,7 @@ mod tests {
 
         let fetch_result = repo.fetch_url(code).await;
         assert!(fetch_result.is_ok());
-        assert_eq!(fetch_result.unwrap(), url);
+        assert_eq!(fetch_result.unwrap().url, url);
     }
 
     #[sqlx::test]

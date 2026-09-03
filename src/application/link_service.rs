@@ -1,5 +1,5 @@
 use crate::domain;
-use crate::domain::{CodeGenerator, Error, OriginalUrl, Repository, ShortCode};
+use crate::domain::{CodeGenerator, Error, FetchResult, OriginalUrl, Repository, ShortCode};
 use async_trait::async_trait;
 use tracing::info;
 use url::Url;
@@ -50,7 +50,7 @@ impl domain::LinkService for LinkService {
         Ok(code)
     }
 
-    async fn fetch_original_url(&self, code: ShortCode) -> Result<OriginalUrl, Error> {
+    async fn fetch_original_url(&self, code: ShortCode) -> Result<FetchResult, Error> {
         if code.0.chars().count() > 8 {
             return Err(Error::ShortCodeTooLong);
         }
@@ -64,8 +64,8 @@ impl domain::LinkService for LinkService {
 mod tests {
     use super::*;
     use crate::application::CodeGenerator;
-    use crate::domain::LinkService as _;
     use crate::domain::ShortCode;
+    use crate::domain::{FetchResult, LinkService as _};
     use async_trait::async_trait;
     use std::collections::HashMap;
     use tokio::sync::Mutex;
@@ -91,9 +91,13 @@ mod tests {
 
     #[async_trait]
     impl Repository for TestRepository {
-        async fn fetch_url(&self, code: ShortCode) -> Result<OriginalUrl, Error> {
+        async fn fetch_url(&self, code: ShortCode) -> Result<FetchResult, Error> {
             match self.links.lock().await.get(&code).cloned() {
-                Some(value) => Ok(value),
+                Some(value) => {
+                    let mut res = FetchResult::default();
+                    res.url = value;
+                    Ok(res)
+                }
                 None => Err(Error::URLNotFound),
             }
         }
@@ -180,7 +184,7 @@ mod tests {
         let code = service.create_short_code(url.clone()).await.unwrap();
         let fetched_url = service.fetch_original_url(code).await.unwrap();
 
-        assert_eq!(format!("{}/", url.0), fetched_url.0);
+        assert_eq!(format!("{}/", url.0), fetched_url.url.0);
     }
 
     #[tokio::test]
@@ -193,7 +197,7 @@ mod tests {
 
         assert_eq!(
             OriginalUrl("https://example.com///////some%20page".to_string()),
-            fetched_url
+            fetched_url.url
         );
     }
 

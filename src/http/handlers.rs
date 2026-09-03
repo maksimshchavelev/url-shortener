@@ -57,11 +57,11 @@ impl Handlers {
             .map_err(|e| e.log())?;
 
         info!(
-            original_url = truncate_with_ellipsis(&url.0, 80),
+            original_url = truncate_with_ellipsis(&url.url.0, 80),
             "Redirecting"
         );
 
-        Ok(Redirect::temporary(&url.0))
+        Ok(Redirect::temporary(&url.url.0))
     }
 }
 
