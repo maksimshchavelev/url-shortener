@@ -1,6 +1,6 @@
 ALTER TABLE links
-    ADD COLUMN clicks       BIGINT      DEFAULT 0,
-    ADD COLUMN clicks_limit BIGINT      DEFAULT 0,
-    ADD COLUMN created_at   TIMESTAMPTZ DEFAULT NOW(),
-    ADD COLUMN expires_at   TIMESTAMPTZ,
-    ADD COLUMN created_ip   VARCHAR(45) -- maximum IPv6 length
+    ADD COLUMN clicks       BIGINT      DEFAULT 0                           NOT NULL,
+    ADD COLUMN clicks_limit BIGINT      DEFAULT 0                           NOT NULL,
+    ADD COLUMN created_at   TIMESTAMPTZ DEFAULT NOW()                       NOT NULL,
+    ADD COLUMN expires_at   TIMESTAMPTZ DEFAULT NOW() + INTERVAL '6 months' NOT NULL,
+    ADD COLUMN created_ip   VARCHAR(45) DEFAULT '0.0.0.0'                   NOT NULL -- maximum IPv6 length
