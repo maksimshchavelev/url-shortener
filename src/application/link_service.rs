@@ -29,7 +29,7 @@ impl domain::LinkService for LinkService {
             return Err(Error::URLTooLong);
         }
 
-        match Url::parse(&url.0) {
+        let url = match Url::parse(&url.0) {
             Err(e) => {
                 info!(error = ?e, "Failed to parse provided URL");
                 return Err(Error::InvalidURL);
@@ -38,11 +38,15 @@ impl domain::LinkService for LinkService {
                 info!("Invalid URL scheme");
                 return Err(Error::InvalidURL);
             }
-            _ => {}
-        }
+            Ok(url) => url,
+        };
 
         let code = self.generator.generate();
-        self.repository.save_code(code.clone(), url).await?;
+
+        self.repository
+            .save_code(code.clone(), OriginalUrl(url.to_string()))
+            .await?;
+
         Ok(code)
     }
 
@@ -132,7 +136,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cant_save_invalid_url_without_prefix() {
+    async fn cant_save_invalid_url_without_scheme() {
         let url = OriginalUrl("example.com".to_string());
         let service = prepare_service(false);
 
@@ -141,7 +145,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cant_save_invalid_url_with_invalid_prefix() {
+    async fn cant_save_invalid_url_with_invalid_scheme() {
         let url = OriginalUrl("htt://example.com".to_string());
         let service = prepare_service(false);
 
@@ -176,7 +180,21 @@ mod tests {
         let code = service.create_short_code(url.clone()).await.unwrap();
         let fetched_url = service.fetch_original_url(code).await.unwrap();
 
-        assert_eq!(url, fetched_url);
+        assert_eq!(format!("{}/", url.0), fetched_url.0);
+    }
+
+    #[tokio::test]
+    async fn url_normalization() {
+        let url = OriginalUrl("https:example.com///////some page".to_string());
+        let service = prepare_service(false);
+
+        let code = service.create_short_code(url.clone()).await.unwrap();
+        let fetched_url = service.fetch_original_url(code).await.unwrap();
+
+        assert_eq!(
+            OriginalUrl("https://example.com///////some%20page".to_string()),
+            fetched_url
+        );
     }
 
     #[tokio::test]
