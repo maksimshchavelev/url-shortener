@@ -11,7 +11,7 @@ impl IntoResponse for Error {
             Error::DuplicateCode => (
                 "conflict".to_string(),
                 self.to_string(),
-                StatusCode::CONFLICT,
+                StatusCode::INTERNAL_SERVER_ERROR,
                 "The generated short code is already taken. Please try again.".to_string(),
             ),
 
@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn duplicate_code_returns_correct_status() {
         let response = Error::DuplicateCode.into_response();
-        assert_eq!(response.status(), StatusCode::CONFLICT);
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[test]
