@@ -2,9 +2,8 @@ use crate::http::client_ip::ClientIP;
 use axum::body::Body;
 use axum::http::StatusCode;
 use axum::{extract::ConnectInfo, extract::Request, middleware::Next, response::Response};
-use log::error;
 use std::net::SocketAddr;
-use tracing::{Instrument, info_span};
+use tracing::{Instrument, info_span, error};
 
 /// HTTP middlewares
 pub struct Middlewares;
