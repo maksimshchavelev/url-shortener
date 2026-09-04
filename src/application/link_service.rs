@@ -1,7 +1,5 @@
 use crate::domain;
-use crate::domain::{
-    CodeGenerator, Error, FetchResult, OriginalUrl, Repository, SaveRequest, ShortCode,
-};
+use crate::domain::{CodeGenerator, Error, OriginalUrl, Repository, SaveRequest, ShortCode};
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use tracing::info;
@@ -67,13 +65,13 @@ impl domain::LinkService for LinkService {
         Ok(code)
     }
 
-    async fn fetch_original_url(&self, code: ShortCode) -> Result<FetchResult, Error> {
+    async fn fetch_original_url(&self, code: ShortCode) -> Result<OriginalUrl, Error> {
         if code.0.chars().count() > 8 {
             return Err(Error::ShortCodeTooLong);
         }
 
-        let url = self.repository.fetch(code).await?;
-        Ok(url)
+        let url = self.repository.fetch_for_click(code).await?;
+        Ok(url.url)
     }
 }
 
@@ -87,9 +85,16 @@ mod tests {
     use std::collections::HashMap;
     use tokio::sync::Mutex;
 
+    /// Represents TestRepository record
+    #[derive(Clone)]
+    struct Record {
+        clicks: i64,
+        url: OriginalUrl,
+    }
+
     /// Stores links in memory (for testing)
     struct TestRepository {
-        links: Mutex<HashMap<ShortCode, OriginalUrl>>,
+        links: Mutex<HashMap<ShortCode, Record>>,
         /// Always return `Error::DuplicateCode` when saving code
         code_already_exists: bool,
     }
@@ -112,7 +117,8 @@ mod tests {
             match self.links.lock().await.get(&code).cloned() {
                 Some(value) => {
                     let mut res = FetchResult::default();
-                    res.url = value;
+                    res.url = value.url;
+                    res.clicks = value.clicks;
                     Ok(res)
                 }
                 None => Err(Error::URLNotFound),
@@ -120,7 +126,19 @@ mod tests {
         }
 
         async fn fetch_for_click(&self, code: ShortCode) -> Result<FetchResult, Error> {
-            self.fetch(code).await
+            match self.links.lock().await.get_mut(&code) {
+                Some(value) => {
+                    value.clicks += 1;
+
+                    let mut res = FetchResult::default();
+
+                    res.url = value.url.clone();
+                    res.clicks = value.clicks;
+
+                    Ok(res)
+                }
+                None => Err(Error::URLNotFound),
+            }
         }
 
         async fn save(&self, request: SaveRequest) -> Result<(), Error> {
@@ -128,7 +146,13 @@ mod tests {
                 return Err(Error::DuplicateCode);
             }
 
-            self.links.lock().await.insert(request.code, request.url);
+            self.links.lock().await.insert(
+                request.code,
+                Record {
+                    url: request.url,
+                    clicks: 0,
+                },
+            );
             Ok(())
         }
 
@@ -237,7 +261,7 @@ mod tests {
 
         let fetched_url = service.fetch_original_url(code).await.unwrap();
 
-        assert_eq!(format!("{}/", url.0), fetched_url.url.0);
+        assert_eq!(format!("{}/", url.0), fetched_url.0);
     }
 
     #[tokio::test]
@@ -254,7 +278,7 @@ mod tests {
 
         assert_eq!(
             OriginalUrl("https://example.com///////some%20page".to_string()),
-            fetched_url.url
+            fetched_url
         );
     }
 
@@ -275,5 +299,32 @@ mod tests {
             .await;
 
         assert!(matches!(fetched_url, Err(Error::ShortCodeTooLong)));
+    }
+
+    #[tokio::test]
+    async fn fetch_original_url_increases_clicks_count() {
+        let service = prepare_service(false);
+
+        let code = service
+            .create_short_code(
+                OriginalUrl("https://example.com".to_string()),
+                "192.168.0.1".to_string(),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            service.repository.fetch(code.clone()).await.unwrap().clicks,
+            0
+        );
+
+        service.fetch_original_url(code.clone()).await.unwrap();
+
+        assert_eq!(
+            service.repository.fetch(code.clone()).await.unwrap().clicks,
+            1
+        );
     }
 }
