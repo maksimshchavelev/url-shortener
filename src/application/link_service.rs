@@ -110,7 +110,6 @@ mod tests {
     use crate::domain::{FetchResult, LinkService as _};
     use crate::domain::{SaveRequest, ShortCode};
     use async_trait::async_trait;
-    use chrono::DateTime;
     use std::collections::HashMap;
     use tokio::sync::Mutex;
 
