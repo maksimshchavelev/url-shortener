@@ -84,7 +84,7 @@ impl Error {
     /// Consumes error, logs it and returns error back
     pub fn log(self) -> Self {
         match &self {
-            Error::DuplicateCode => warn!("Short code already exist"),
+            Error::DuplicateCode => error!("Short code already exist"),
             Error::URLNotFound => info!("URL related with this short code not found"),
             Error::URLTooLong => warn!("URL is too long"),
             Error::InvalidURL => info!("Invalid URL"),
