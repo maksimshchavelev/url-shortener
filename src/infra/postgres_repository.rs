@@ -121,7 +121,7 @@ impl Repository for PostgresRepository {
         Ok(res.rows_affected())
     }
 
-    async fn cleanup_links_exceeded_click_limit(&self) -> Result<u64, Error> {
+    async fn cleanup_links_exceeded_clicks_limit(&self) -> Result<u64, Error> {
         let res = sqlx::query!("DELETE FROM links WHERE clicks > clicks_limit")
             .execute(&self.pool)
             .await
@@ -457,7 +457,7 @@ mod tests {
         repo.save(not_exceeded_req).await.unwrap();
 
         // ---------- cleanup ----------
-        let removed = repo.cleanup_links_exceeded_click_limit().await.unwrap();
+        let removed = repo.cleanup_links_exceeded_clicks_limit().await.unwrap();
         assert_eq!(removed, 2);
 
         // ---------- fetch not removed ----------

@@ -1,6 +1,16 @@
-use crate::domain::{Error, FetchResult, OriginalUrl, ShortCode};
+use crate::domain::{Error, OriginalUrl, ShortCode};
 use async_trait::async_trait;
 use chrono::Duration;
+
+/// Result of `cleanup` operation of `LinkService`
+#[derive(Default, Copy, Clone)]
+pub struct CleanupResult {
+    /// Count of removed links that expired
+    pub expired_links_removed: u64,
+
+    /// Count of removed links that exceeded count of clicks
+    pub exceeded_links_removed: u64,
+}
 
 /// Describes service that working with links. It's useful if
 /// you need to create short code from original URL, or fetch
@@ -25,4 +35,9 @@ pub trait LinkService: Send + Sync {
     /// # Returns
     /// Original URL related with `code` or `domain::Error`
     async fn fetch_original_url(&self, code: ShortCode) -> Result<OriginalUrl, Error>;
+
+    /// Removes expired links and links that exceeded clicks limit
+    /// # Returns
+    /// `CleanupResult` or `domain::Error`
+    async fn cleanup(&self) -> Result<CleanupResult, Error>;
 }

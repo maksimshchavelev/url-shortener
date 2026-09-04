@@ -83,5 +83,5 @@ pub trait Repository: Send + Sync {
     /// Removes links that have exceeded their click limit
     /// # Returns
     /// Count of removed links or `domain::Error`
-    async fn cleanup_links_exceeded_click_limit(&self) -> Result<u64, Error>;
+    async fn cleanup_links_exceeded_clicks_limit(&self) -> Result<u64, Error>;
 }
