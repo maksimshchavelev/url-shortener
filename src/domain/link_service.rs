@@ -8,7 +8,7 @@ use chrono::Duration;
 #[async_trait]
 pub trait LinkService: Send + Sync {
     /// Create short code from original URL while also retaining
-    /// the IP address of the person who created the link (`created_ip`)
+    /// the IP address of the person who created the link (`creator_ip`)
     /// and sets lifetime of a short code(`lifetime`) with limit of
     /// clicks (`clicks_limit`)
     /// # Returns
@@ -16,7 +16,7 @@ pub trait LinkService: Send + Sync {
     async fn create_short_code(
         &self,
         url: OriginalUrl,
-        created_ip: String,
+        creator_ip: String,
         lifetime: Option<Duration>,
         clicks_limit: Option<i64>,
     ) -> Result<ShortCode, Error>;
