@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use chrono::*;
 
 /// Result of fetch operation in `Repository`
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct FetchResult {
     /// ID of link
     pub id: i64,
@@ -31,7 +31,7 @@ pub struct FetchResult {
 }
 
 /// Request to save short code with additional info
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct SaveRequest {
     /// Short code to save
     pub code: ShortCode,
