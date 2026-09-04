@@ -1,5 +1,7 @@
 use crate::domain;
-use crate::domain::{CodeGenerator, Error, OriginalUrl, Repository, SaveRequest, ShortCode};
+use crate::domain::{
+    CleanupResult, CodeGenerator, Error, OriginalUrl, Repository, SaveRequest, ShortCode,
+};
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use tracing::info;
@@ -82,6 +84,16 @@ impl domain::LinkService for LinkService {
         let url = self.repository.fetch_for_click(code).await?;
         Ok(url.url)
     }
+
+    async fn cleanup(&self) -> Result<CleanupResult, Error> {
+        let mut result = CleanupResult::default();
+
+        result.expired_links_removed = self.repository.cleanup_expired_links().await?;
+        result.exceeded_links_removed =
+            self.repository.cleanup_links_exceeded_clicks_limit().await?;
+
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -92,6 +104,7 @@ mod tests {
     use crate::domain::{SaveRequest, ShortCode};
     use async_trait::async_trait;
     use std::collections::HashMap;
+    use chrono::DateTime;
     use tokio::sync::Mutex;
 
     /// Represents TestRepository record
@@ -99,6 +112,8 @@ mod tests {
     struct Record {
         clicks: i64,
         url: OriginalUrl,
+        clicks_limit: Option<i64>,
+        expires_at: Option<DateTime<Utc>>
     }
 
     /// Stores links in memory (for testing)
@@ -160,17 +175,21 @@ mod tests {
                 Record {
                     url: request.url,
                     clicks: 0,
+                    expires_at: request.expires_at,
+                    clicks_limit: request.clicks_limit
                 },
             );
             Ok(())
         }
 
+        /// Just returns 123
         async fn cleanup_expired_links(&self) -> Result<u64, Error> {
-            Ok(0)
+            Ok(123)
         }
 
-        async fn cleanup_links_exceeded_click_limit(&self) -> Result<u64, Error> {
-            Ok(0)
+        /// Just returns 1234
+        async fn cleanup_links_exceeded_clicks_limit(&self) -> Result<u64, Error> {
+            Ok(1234)
         }
     }
 
@@ -398,5 +417,33 @@ mod tests {
             .await;
 
         assert!(ok_clicks.is_ok());
+    }
+
+    #[tokio::test]
+    async fn cleanup_cleans_expired_and_exceeded_links() {
+        let service = prepare_service(false);
+
+        let expired_code = SaveRequest {
+            expires_at: Some(Utc::now() - Duration::days(1)),
+            clicks_limit: None,
+            clicks: 10,
+            url: OriginalUrl("https://example.com".to_string()),
+            code: ShortCode("code1".to_string()),
+            creator_ip: "192.168.0.1".to_string(),
+            created_at: Utc::now(),
+        };
+
+        let mut exceeded_code = expired_code.clone();
+        exceeded_code.expires_at = None;
+        exceeded_code.clicks_limit = Some(1);
+        exceeded_code.code = ShortCode("code2".to_string());
+
+        service.repository.save(expired_code).await.unwrap();
+        service.repository.save(exceeded_code).await.unwrap();
+
+        let cleanup_res = service.cleanup().await.unwrap();
+
+        assert_eq!(cleanup_res.expired_links_removed, 123);
+        assert_eq!(cleanup_res.exceeded_links_removed, 1234);
     }
 }
