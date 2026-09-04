@@ -1,6 +1,6 @@
 use crate::domain::{AppState, Error, OriginalUrl, ShortCode};
 use crate::http::client_ip::ClientIP;
-use crate::http::requests::{CreateLinkRequest, CreateLinkResponse};
+use crate::http::requests::{CreateLinkRequest, CreateLinkResponse, DiscoverLinkResponse};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::{Extension, Json, extract::Path, extract::State};
@@ -75,6 +75,40 @@ impl Handlers {
         );
 
         Ok(Redirect::temporary(&url.0))
+    }
+
+    /// Handles discover request
+    #[instrument(skip(state, code), fields(code_len = code.len()))]
+    pub async fn handle_discover(
+        Path(code): Path<String>,
+        State(state): State<Arc<AppState>>,
+    ) -> Result<Json<DiscoverLinkResponse>, Error> {
+        debug!(
+            short_code = truncate_with_ellipsis(&code, 16),
+            "Got short code"
+        );
+
+        let link = state
+            .link_service
+            .discover(ShortCode(code))
+            .await
+            .map_err(|e| e.log())?;
+
+        info!(
+            link = ?link,
+            "Discovering link"
+        );
+
+        let response = DiscoverLinkResponse {
+            expires_at: link.expires_at,
+            url: link.url.0,
+            clicks_limit: link.clicks_limit,
+            code: link.code.0,
+            created_at: link.created_at,
+            clicks: link.clicks,
+        };
+
+        Ok(Json(response))
     }
 }
 
