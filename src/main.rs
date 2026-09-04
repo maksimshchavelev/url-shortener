@@ -2,7 +2,7 @@ use axum::routing::{any, post};
 use axum::{Router, extract::DefaultBodyLimit, middleware};
 use std::net::SocketAddr;
 use std::{env, process, sync::Arc};
-use tokio::{net, signal};
+use tokio::{net, signal, time};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 use url_shortener::{application, domain, http, infra};
@@ -48,13 +48,13 @@ async fn main() -> Result<(), domain::Error> {
 
     let generator = application::CodeGenerator::new();
     let link_service = application::LinkService::new(Box::new(generator), Box::new(repository));
-    let state = domain::AppState::new(Box::new(link_service));
+    let state = Arc::new(domain::AppState::new(Box::new(link_service)));
 
     // ----------- routes -----------
     let app = Router::new()
         .route("/{code}", any(http::Handlers::handle_redirect))
         .route("/create", post(http::Handlers::handle_create))
-        .with_state(Arc::new(state))
+        .with_state(Arc::clone(&state))
         .layer(middleware::from_fn(http::Middlewares::ip_logger))
         .layer(middleware::from_fn(http::Middlewares::ip_extractor))
         .layer(DefaultBodyLimit::max(1024 * 8));
@@ -63,6 +63,33 @@ async fn main() -> Result<(), domain::Error> {
     let listener = net::TcpListener::bind(format!("{}:{}", server_listen_ip, server_port))
         .await
         .map_err(domain::Error::from_internal)?;
+
+    // ----------- background tasks -----------
+    {
+        let state = Arc::clone(&state);
+        tokio::spawn(async move {
+            let mut interval = time::interval(time::Duration::from_hours(12));
+
+            loop {
+                interval.tick().await;
+
+                info!("Running cleanup...");
+
+                match state.link_service.cleanup().await {
+                    Ok(res) => {
+                        info!(
+                            "Cleaned {} expired links and {} links that exceeded clicks limit",
+                            res.expired_links_removed, res.exceeded_links_removed
+                        );
+                    }
+
+                    Err(e) => {
+                        error!("Failed to cleanup: {e}");
+                    }
+                }
+            }
+        });
+    }
 
     info!(
         "Listening {server_listen_ip}:{server_port} with {database_connections} database connections"
