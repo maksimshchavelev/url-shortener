@@ -1,6 +1,9 @@
 use crate::domain;
-use crate::domain::{CodeGenerator, Error, FetchResult, OriginalUrl, Repository, ShortCode};
+use crate::domain::{
+    CodeGenerator, Error, FetchResult, OriginalUrl, Repository, SaveRequest, ShortCode,
+};
 use async_trait::async_trait;
+use chrono::{Duration, Utc};
 use tracing::info;
 use url::Url;
 
@@ -24,7 +27,13 @@ impl LinkService {
 
 #[async_trait]
 impl domain::LinkService for LinkService {
-    async fn create_short_code(&self, url: OriginalUrl) -> Result<ShortCode, Error> {
+    async fn create_short_code(
+        &self,
+        url: OriginalUrl,
+        created_ip: String,
+        lifetime: Option<Duration>,
+        clicks_limit: Option<i64>,
+    ) -> Result<ShortCode, Error> {
         if url.0.chars().count() > 2048 {
             return Err(Error::URLTooLong);
         }
@@ -44,7 +53,15 @@ impl domain::LinkService for LinkService {
         let code = self.generator.generate();
 
         self.repository
-            .save_code(code.clone(), OriginalUrl(url.to_string()))
+            .save(SaveRequest {
+                created_at: Utc::now(),
+                expires_at: lifetime.and_then(|duration| Some(Utc::now() + duration)),
+                clicks: 0,
+                clicks_limit,
+                created_ip,
+                url: OriginalUrl(url.to_string()),
+                code: code.clone(),
+            })
             .await?;
 
         Ok(code)
@@ -55,7 +72,7 @@ impl domain::LinkService for LinkService {
             return Err(Error::ShortCodeTooLong);
         }
 
-        let url = self.repository.fetch_url(code).await?;
+        let url = self.repository.fetch(code).await?;
         Ok(url)
     }
 }
@@ -64,8 +81,8 @@ impl domain::LinkService for LinkService {
 mod tests {
     use super::*;
     use crate::application::CodeGenerator;
-    use crate::domain::ShortCode;
     use crate::domain::{FetchResult, LinkService as _};
+    use crate::domain::{SaveRequest, ShortCode};
     use async_trait::async_trait;
     use std::collections::HashMap;
     use tokio::sync::Mutex;
@@ -91,7 +108,7 @@ mod tests {
 
     #[async_trait]
     impl Repository for TestRepository {
-        async fn fetch_url(&self, code: ShortCode) -> Result<FetchResult, Error> {
+        async fn fetch(&self, code: ShortCode) -> Result<FetchResult, Error> {
             match self.links.lock().await.get(&code).cloned() {
                 Some(value) => {
                     let mut res = FetchResult::default();
@@ -102,13 +119,25 @@ mod tests {
             }
         }
 
-        async fn save_code(&self, short: ShortCode, url: OriginalUrl) -> Result<(), Error> {
+        async fn fetch_for_click(&self, code: ShortCode) -> Result<FetchResult, Error> {
+            self.fetch(code).await
+        }
+
+        async fn save(&self, request: SaveRequest) -> Result<(), Error> {
             if self.code_already_exists {
                 return Err(Error::DuplicateCode);
             }
 
-            self.links.lock().await.insert(short, url);
+            self.links.lock().await.insert(request.code, request.url);
             Ok(())
+        }
+
+        async fn cleanup_expired_links(&self) -> Result<u64, Error> {
+            Ok(0)
+        }
+
+        async fn cleanup_links_exceeded_click_limit(&self) -> Result<u64, Error> {
+            Ok(0)
         }
     }
 
@@ -124,7 +153,11 @@ mod tests {
         let url = OriginalUrl("https://example.com".to_string());
         let service = prepare_service(false);
 
-        let code = service.create_short_code(url).await.unwrap().0;
+        let code = service
+            .create_short_code(url, "192.168.0.1".to_string(), None, None)
+            .await
+            .unwrap()
+            .0;
 
         // Note: code length is 8, see application::CodeGenerator docs
         assert_eq!(code.chars().count(), 8);
@@ -135,7 +168,10 @@ mod tests {
         let url = OriginalUrl("https://example.com".to_string().repeat(2048));
         let service = prepare_service(false);
 
-        let code = service.create_short_code(url).await;
+        let code = service
+            .create_short_code(url, "192.168.0.1".to_string(), None, None)
+            .await;
+
         assert!(matches!(code.err().unwrap(), Error::URLTooLong));
     }
 
@@ -144,7 +180,10 @@ mod tests {
         let url = OriginalUrl("example.com".to_string());
         let service = prepare_service(false);
 
-        let code = service.create_short_code(url).await;
+        let code = service
+            .create_short_code(url, "192.168.0.1".to_string(), None, None)
+            .await;
+
         assert!(matches!(code.err().unwrap(), Error::InvalidURL));
     }
 
@@ -153,7 +192,10 @@ mod tests {
         let url = OriginalUrl("htt://example.com".to_string());
         let service = prepare_service(false);
 
-        let code = service.create_short_code(url).await;
+        let code = service
+            .create_short_code(url, "192.168.0.1".to_string(), None, None)
+            .await;
+
         assert!(matches!(code.err().unwrap(), Error::InvalidURL));
     }
 
@@ -162,7 +204,12 @@ mod tests {
         let url = OriginalUrl("http://example.com".to_string());
         let service = prepare_service(false);
 
-        assert!(matches!(service.create_short_code(url).await, Ok(_)));
+        assert!(matches!(
+            service
+                .create_short_code(url, "192.168.0.1".to_string(), None, None)
+                .await,
+            Ok(_)
+        ));
     }
 
     #[tokio::test]
@@ -171,7 +218,9 @@ mod tests {
         let service = prepare_service(true);
 
         assert!(matches!(
-            service.create_short_code(url).await,
+            service
+                .create_short_code(url, "192.168.0.1".to_string(), None, None)
+                .await,
             Err(Error::DuplicateCode)
         ));
     }
@@ -181,7 +230,11 @@ mod tests {
         let url = OriginalUrl("https://example.com".to_string());
         let service = prepare_service(false);
 
-        let code = service.create_short_code(url.clone()).await.unwrap();
+        let code = service
+            .create_short_code(url.clone(), "192.168.0.1".to_string(), None, None)
+            .await
+            .unwrap();
+
         let fetched_url = service.fetch_original_url(code).await.unwrap();
 
         assert_eq!(format!("{}/", url.0), fetched_url.url.0);
@@ -192,7 +245,11 @@ mod tests {
         let url = OriginalUrl("https:example.com///////some page".to_string());
         let service = prepare_service(false);
 
-        let code = service.create_short_code(url.clone()).await.unwrap();
+        let code = service
+            .create_short_code(url.clone(), "192.168.0.1".to_string(), None, None)
+            .await
+            .unwrap();
+
         let fetched_url = service.fetch_original_url(code).await.unwrap();
 
         assert_eq!(
