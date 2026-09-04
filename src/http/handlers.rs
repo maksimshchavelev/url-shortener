@@ -59,7 +59,7 @@ impl Handlers {
         State(state): State<Arc<AppState>>,
     ) -> Result<Redirect, Error> {
         debug!(
-            short_code = truncate_with_ellipsis(&code, 16),
+            short_code = truncate_with_ellipsis(&code, 64),
             "Got short code"
         );
 
@@ -84,7 +84,7 @@ impl Handlers {
         State(state): State<Arc<AppState>>,
     ) -> Result<Json<DiscoverLinkResponse>, Error> {
         debug!(
-            short_code = truncate_with_ellipsis(&code, 16),
+            short_code = truncate_with_ellipsis(&code, 64),
             "Got short code"
         );
 
