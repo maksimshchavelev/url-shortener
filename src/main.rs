@@ -1,4 +1,4 @@
-use axum::routing::{any, post};
+use axum::routing::{any, get, post};
 use axum::{Router, extract::DefaultBodyLimit, middleware};
 use std::net::SocketAddr;
 use std::{env, process, sync::Arc};
@@ -54,6 +54,7 @@ async fn main() -> Result<(), domain::Error> {
     let app = Router::new()
         .route("/{code}", any(http::Handlers::handle_redirect))
         .route("/link", post(http::Handlers::handle_create))
+        .route("/link", get(http::Handlers::handle_discover))
         .with_state(Arc::clone(&state))
         .layer(middleware::from_fn(http::Middlewares::ip_logger))
         .layer(middleware::from_fn(http::Middlewares::ip_extractor))
