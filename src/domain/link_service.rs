@@ -24,5 +24,5 @@ pub trait LinkService: Send + Sync {
     /// Fetch original URL by short code and increases clicks count
     /// # Returns
     /// Original URL related with `code` or `domain::Error`
-    async fn fetch_original_url(&self, code: ShortCode) -> Result<FetchResult, Error>;
+    async fn fetch_original_url(&self, code: OriginalUrl) -> Result<FetchResult, Error>;
 }
