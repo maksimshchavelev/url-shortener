@@ -56,6 +56,7 @@ async fn main() -> Result<(), domain::Error> {
         .route("/create", post(http::Handlers::handle_create))
         .with_state(Arc::new(state))
         .layer(middleware::from_fn(http::Middlewares::ip_logger))
+        .layer(middleware::from_fn(http::Middlewares::ip_extractor))
         .layer(DefaultBodyLimit::max(1024 * 8));
 
     // ----------- server -----------
