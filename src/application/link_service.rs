@@ -28,7 +28,7 @@ impl domain::LinkService for LinkService {
     async fn create_short_code(
         &self,
         url: OriginalUrl,
-        created_ip: String,
+        creator_ip: String,
         lifetime: Option<Duration>,
         clicks_limit: Option<i64>,
     ) -> Result<ShortCode, Error> {
@@ -65,7 +65,7 @@ impl domain::LinkService for LinkService {
                 expires_at: lifetime.and_then(|duration| Some(Utc::now() + duration)),
                 clicks: 0,
                 clicks_limit,
-                created_ip,
+                creator_ip,
                 url: OriginalUrl(url.to_string()),
                 code: code.clone(),
             })
