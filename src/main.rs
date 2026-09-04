@@ -52,9 +52,9 @@ async fn main() -> Result<(), domain::Error> {
 
     // ----------- routes -----------
     let app = Router::new()
-        .route("/{code}", any(http::Handlers::handle_redirect))
         .route("/link", post(http::Handlers::handle_create))
-        .route("/link", get(http::Handlers::handle_discover))
+        .route("/link/{code}", get(http::Handlers::handle_discover))
+        .route("/{code}", any(http::Handlers::handle_redirect))
         .with_state(Arc::clone(&state))
         .layer(middleware::from_fn(http::Middlewares::ip_logger))
         .layer(middleware::from_fn(http::Middlewares::ip_extractor))
