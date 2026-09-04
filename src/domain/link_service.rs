@@ -1,4 +1,4 @@
-use crate::domain::{Error, OriginalUrl, ShortCode};
+use crate::domain::{Error, FetchResult, OriginalUrl, ShortCode};
 use async_trait::async_trait;
 use chrono::Duration;
 
@@ -35,6 +35,11 @@ pub trait LinkService: Send + Sync {
     /// # Returns
     /// Original URL related with `code` or `domain::Error`
     async fn fetch_original_url(&self, code: ShortCode) -> Result<OriginalUrl, Error>;
+
+    /// Discover link by short code
+    /// # Returns
+    /// `FetchResult` or `domain::Error`
+    async fn discover(&self, code: ShortCode) -> Result<FetchResult, Error>;
 
     /// Removes expired links and links that exceeded clicks limit
     /// # Returns

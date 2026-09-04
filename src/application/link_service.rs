@@ -1,6 +1,7 @@
 use crate::domain;
 use crate::domain::{
-    CleanupResult, CodeGenerator, Error, OriginalUrl, Repository, SaveRequest, ShortCode,
+    CleanupResult, CodeGenerator, Error, FetchResult, OriginalUrl, Repository, SaveRequest,
+    ShortCode,
 };
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
@@ -85,12 +86,18 @@ impl domain::LinkService for LinkService {
         Ok(url.url)
     }
 
+    async fn discover(&self, code: ShortCode) -> Result<FetchResult, Error> {
+        self.repository.fetch(code).await
+    }
+
     async fn cleanup(&self) -> Result<CleanupResult, Error> {
         let mut result = CleanupResult::default();
 
         result.expired_links_removed = self.repository.cleanup_expired_links().await?;
-        result.exceeded_links_removed =
-            self.repository.cleanup_links_exceeded_clicks_limit().await?;
+        result.exceeded_links_removed = self
+            .repository
+            .cleanup_links_exceeded_clicks_limit()
+            .await?;
 
         Ok(result)
     }
@@ -103,8 +110,8 @@ mod tests {
     use crate::domain::{FetchResult, LinkService as _};
     use crate::domain::{SaveRequest, ShortCode};
     use async_trait::async_trait;
-    use std::collections::HashMap;
     use chrono::DateTime;
+    use std::collections::HashMap;
     use tokio::sync::Mutex;
 
     /// Represents TestRepository record
@@ -112,8 +119,6 @@ mod tests {
     struct Record {
         clicks: i64,
         url: OriginalUrl,
-        clicks_limit: Option<i64>,
-        expires_at: Option<DateTime<Utc>>
     }
 
     /// Stores links in memory (for testing)
@@ -175,8 +180,6 @@ mod tests {
                 Record {
                     url: request.url,
                     clicks: 0,
-                    expires_at: request.expires_at,
-                    clicks_limit: request.clicks_limit
                 },
             );
             Ok(())
@@ -445,5 +448,32 @@ mod tests {
 
         assert_eq!(cleanup_res.expired_links_removed, 123);
         assert_eq!(cleanup_res.exceeded_links_removed, 1234);
+    }
+
+    #[tokio::test]
+    async fn discover_original_url_not_increases_clicks_count() {
+        let service = prepare_service(false);
+
+        let code = service
+            .create_short_code(
+                OriginalUrl("https://example.com".to_string()),
+                "192.168.0.1".to_string(),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            service.repository.fetch(code.clone()).await.unwrap().clicks,
+            0
+        );
+
+        service.discover(code.clone()).await.unwrap();
+
+        assert_eq!(
+            service.repository.fetch(code.clone()).await.unwrap().clicks,
+            0
+        );
     }
 }
