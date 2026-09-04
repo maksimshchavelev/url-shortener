@@ -36,6 +36,11 @@ impl domain::LinkService for LinkService {
             return Err(Error::URLTooLong);
         }
 
+        if lifetime.is_some_and(|value| value > Duration::days(180) || value < Duration::seconds(1))
+        {
+            return Err(Error::InvalidShortCodeLifetime);
+        }
+
         let url = match Url::parse(&url.0) {
             Err(e) => {
                 info!(error = ?e, "Failed to parse provided URL");
@@ -326,5 +331,38 @@ mod tests {
             service.repository.fetch(code.clone()).await.unwrap().clicks,
             1
         );
+    }
+
+    #[tokio::test]
+    async fn cant_create_link_with_too_long_expires_time() {
+        let service = prepare_service(false);
+
+        let too_long_code = service
+            .create_short_code(
+                OriginalUrl("https://example.com".to_string()),
+                "192.168.0.1".to_string(),
+                Some(Duration::days(181)),
+                None,
+            )
+            .await;
+
+        assert!(matches!(
+            too_long_code.err().unwrap(),
+            Error::InvalidShortCodeLifetime
+        ));
+
+        let too_short_code = service
+            .create_short_code(
+                OriginalUrl("https://example.com".to_string()),
+                "192.168.0.1".to_string(),
+                Some(Duration::milliseconds(999)),
+                None,
+            )
+            .await;
+
+        assert!(matches!(
+            too_short_code.err().unwrap(),
+            Error::InvalidShortCodeLifetime
+        ));
     }
 }
