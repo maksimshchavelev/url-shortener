@@ -1,8 +1,10 @@
 use crate::domain::{AppState, Error, OriginalUrl, ShortCode};
+use crate::http::client_ip::ClientIP;
 use crate::http::requests::{CreateLinkRequest, CreateLinkResponse};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
-use axum::{Json, extract::Path, extract::State};
+use axum::{Extension, Json, extract::Path, extract::State};
+use chrono::Duration;
 use std::sync::Arc;
 use tracing::{debug, info, instrument};
 
@@ -11,9 +13,13 @@ pub struct Handlers;
 
 impl Handlers {
     /// Handle create short code request
-    #[instrument(skip(state, request), fields(url_len = request.url.len()))]
+    #[instrument(skip(state, request, ip), fields(
+        url_len = request.url.len(),
+        lifetime_seconds = request.lifetime_seconds,
+        clicks_limit = request.clicks_limit))]
     pub async fn handle_create(
         State(state): State<Arc<AppState>>,
+        Extension(ip): Extension<ClientIP>,
         Json(request): Json<CreateLinkRequest>,
     ) -> Result<Response, Error> {
         debug!(
@@ -23,7 +29,14 @@ impl Handlers {
 
         let code = state
             .link_service
-            .create_short_code(OriginalUrl(request.url.clone()))
+            .create_short_code(
+                OriginalUrl(request.url.clone()),
+                ip.0,
+                request
+                    .lifetime_seconds
+                    .and_then(|lifetime| Some(Duration::seconds(lifetime))),
+                request.clicks_limit,
+            )
             .await
             .map_err(|e| e.log())?;
 
@@ -57,11 +70,11 @@ impl Handlers {
             .map_err(|e| e.log())?;
 
         info!(
-            original_url = truncate_with_ellipsis(&url.url.0, 80),
+            original_url = truncate_with_ellipsis(&url.0, 80),
             "Redirecting"
         );
 
-        Ok(Redirect::temporary(&url.url.0))
+        Ok(Redirect::temporary(&url.0))
     }
 }
 
