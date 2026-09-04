@@ -9,6 +9,16 @@ A unique 8-digit code is generated for each link and stored
 in the database. This code can later be used to retrieve the
 original URL.
 
+## Implemented features
+
+- [x] Creating short links and redirecting
+- [x] Time Limit for a Short Link
+- [x] Limiting the Number of Clicks on a Short Link
+- [x] Ability to view statistics via a short link
+- [x] Logging at Various Levels
+- [x] Docker and Docker Compose support
+- [x] Nginx support (as proxy)
+
 ## What is the project's technology stack?
 
 [Rust](https://rust-lang.org/) is used as the programming language,
