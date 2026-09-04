@@ -55,7 +55,7 @@ impl Repository for PostgresRepository {
                 created_at: record.created_at,
                 expires_at: record.expires_at,
                 code: ShortCode(record.code),
-                created_ip: record.created_ip,
+                creator_ip: record.creator_ip,
                 url: OriginalUrl(record.url),
             }),
             None => Err(Error::URLNotFound),
@@ -82,7 +82,7 @@ impl Repository for PostgresRepository {
                 created_at: record.created_at,
                 expires_at: record.expires_at,
                 code: ShortCode(record.code),
-                created_ip: record.created_ip,
+                creator_ip: record.creator_ip,
                 url: OriginalUrl(record.url),
             }),
             None => Err(Error::URLNotFound),
@@ -91,14 +91,14 @@ impl Repository for PostgresRepository {
 
     async fn save(&self, request: SaveRequest) -> Result<(), Error> {
         let result = sqlx::query!(
-            "INSERT INTO links (code, url, clicks, clicks_limit, created_at, expires_at, created_ip) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            "INSERT INTO links (code, url, clicks, clicks_limit, created_at, expires_at, creator_ip) VALUES ($1, $2, $3, $4, $5, $6, $7)",
             request.code.0,
             request.url.0,
             request.clicks,
             request.clicks_limit,
             request.created_at,
             request.expires_at,
-            request.created_ip
+            request.creator_ip
         )
             .execute(&self.pool)
             .await;
@@ -143,7 +143,7 @@ mod tests {
             code,
             expires_at: Some(Utc::now() + chrono::Duration::days(1)),
             clicks_limit: Some(100),
-            created_ip: "192.168.0.1".to_string(),
+            creator_ip: "192.168.0.1".to_string(),
             clicks: 10,
             created_at: Utc::now(),
         }
@@ -212,7 +212,7 @@ mod tests {
         let delta = fetch_result.expires_at.unwrap() - req.expires_at.unwrap();
         assert!(delta.num_seconds().abs() < 1);
 
-        assert_eq!(fetch_result.created_ip, req.created_ip);
+        assert_eq!(fetch_result.creator_ip, req.creator_ip);
         assert_eq!(fetch_result.clicks, req.clicks);
     }
 
