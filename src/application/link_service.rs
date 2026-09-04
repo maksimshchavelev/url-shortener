@@ -32,7 +32,7 @@ impl domain::LinkService for LinkService {
         &self,
         url: OriginalUrl,
         creator_ip: String,
-        lifetime: Option<Duration>,
+        mut lifetime: Option<Duration>,
         clicks_limit: Option<i64>,
     ) -> Result<ShortCode, Error> {
         if url.0.chars().count() > 2048 {
@@ -46,6 +46,10 @@ impl domain::LinkService for LinkService {
 
         if clicks_limit.is_some_and(|value| value < 1) {
             return Err(Error::InvalidShortCodeClicksLimit);
+        }
+
+        if lifetime.is_none() {
+            lifetime = Some(Duration::days(180));
         }
 
         let url = match Url::parse(&url.0) {
@@ -111,6 +115,7 @@ mod tests {
     use crate::domain::{SaveRequest, ShortCode};
     use async_trait::async_trait;
     use std::collections::HashMap;
+    use chrono::DateTime;
     use tokio::sync::Mutex;
 
     /// Represents TestRepository record
@@ -118,6 +123,7 @@ mod tests {
     struct Record {
         clicks: i64,
         url: OriginalUrl,
+        expires_at: Option<DateTime<Utc>>
     }
 
     /// Stores links in memory (for testing)
@@ -145,8 +151,11 @@ mod tests {
             match self.links.lock().await.get(&code).cloned() {
                 Some(value) => {
                     let mut res = FetchResult::default();
+
                     res.url = value.url;
                     res.clicks = value.clicks;
+                    res.expires_at = value.expires_at;
+
                     Ok(res)
                 }
                 None => Err(Error::URLNotFound),
@@ -162,6 +171,7 @@ mod tests {
 
                     res.url = value.url.clone();
                     res.clicks = value.clicks;
+                    res.expires_at = value.expires_at;
 
                     Ok(res)
                 }
@@ -179,6 +189,7 @@ mod tests {
                 Record {
                     url: request.url,
                     clicks: 0,
+                    expires_at: request.expires_at
                 },
             );
             Ok(())
@@ -474,5 +485,23 @@ mod tests {
             service.repository.fetch(code.clone()).await.unwrap().clicks,
             0
         );
+    }
+
+    #[tokio::test]
+    async fn default_lifetime_duration_created() {
+        let service = prepare_service(false);
+
+        let code = service
+            .create_short_code(
+                OriginalUrl("https://example.com".to_string()),
+                "192.168.0.1".to_string(),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+
+        let result = service.discover(code.clone()).await.unwrap();
+        assert!(result.expires_at.is_some());
     }
 }
