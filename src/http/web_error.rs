@@ -43,6 +43,20 @@ impl IntoResponse for Error {
                 "Provided short code is too long".to_string()
             ),
 
+            Error::InvalidShortCodeLifetime => (
+                "invalid_option".to_string(),
+                self.to_string(),
+                StatusCode::BAD_REQUEST,
+                "Invalid short code lifetime".to_string()
+            ),
+
+            Error::InvalidShortCodeClicksLimit => (
+                "invalid_option".to_string(),
+                self.to_string(),
+                StatusCode::BAD_REQUEST,
+                "Invalid short code clicks limit".to_string()
+            ),
+
             Error::Internal(_) => (
                 "internal".to_string(),
                 "Internal Server Error".to_string(),
@@ -75,6 +89,8 @@ impl Error {
             Error::URLTooLong => warn!("URL is too long"),
             Error::InvalidURL => info!("Invalid URL"),
             Error::ShortCodeTooLong => warn!("Short code is too long"),
+            Error::InvalidShortCodeLifetime => info!("Invalid short code lifetime"),
+            Error::InvalidShortCodeClicksLimit => info!("Invalid short code clicks limit"),
             Error::Internal(source) => error!(error = ?source, "Internal Server Error"),
         }
 
@@ -113,6 +129,18 @@ mod tests {
     #[test]
     fn short_code_too_long_returns_correct_status() {
         let response = Error::ShortCodeTooLong.into_response();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn invalid_short_code_lifetime_returns_correct_status() {
+        let response = Error::InvalidShortCodeLifetime.into_response();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn invalid_short_code_clicks_limit_returns_correct_status() {
+        let response = Error::InvalidShortCodeClicksLimit.into_response();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
