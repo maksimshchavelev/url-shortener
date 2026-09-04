@@ -46,7 +46,7 @@ pub struct SaveRequest {
     pub clicks_limit: Option<i64>,
 
     /// When link was created
-    pub created_at: DateTime<Utc>,
+    pub creator_ip: DateTime<Utc>,
 
     /// When link expires
     pub expires_at: Option<DateTime<Utc>>,
