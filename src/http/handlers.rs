@@ -94,11 +94,6 @@ impl Handlers {
             .await
             .map_err(|e| e.log())?;
 
-        info!(
-            link = ?link,
-            "Discovering link"
-        );
-
         let response = DiscoverLinkResponse {
             expires_at: link.expires_at,
             url: link.url.0,
@@ -107,6 +102,11 @@ impl Handlers {
             created_at: link.created_at,
             clicks: link.clicks,
         };
+
+        info!(
+            link = ?response,
+            "Discovering link"
+        );
 
         Ok(Json(response))
     }
