@@ -46,13 +46,13 @@ pub struct SaveRequest {
     pub clicks_limit: Option<i64>,
 
     /// When link was created
-    pub creator_ip: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
 
     /// When link expires
     pub expires_at: Option<DateTime<Utc>>,
 
     /// IP that created short link
-    pub created_ip: String,
+    pub creator_ip: String,
 }
 
 /// Describes repository that manages URL's
