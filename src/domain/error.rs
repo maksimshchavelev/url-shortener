@@ -23,6 +23,14 @@ pub enum Error {
     #[error("Short code is too long")]
     ShortCodeTooLong,
 
+    /// The lifetime of the short link is incorrect
+    #[error("Invalid short code lifetime")]
+    InvalidShortCodeLifetime,
+
+    /// The clicks limit of the short link is incorrect
+    #[error("Invalid short code clicks limit")]
+    InvalidShortCodeClicksLimit,
+
     /// Internal error occurred
     #[error("Internal error")]
     Internal(#[from] Box<dyn std::error::Error>),
