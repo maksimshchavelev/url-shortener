@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM links WHERE clicks > clicks_limit",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "805c2f03c46bae9e2299b321ea64aa23fe639360e38be40b3bb5407783d6857e"
+}

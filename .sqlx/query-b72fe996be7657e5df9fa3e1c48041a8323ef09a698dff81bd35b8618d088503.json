@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, code, url, clicks, clicks_limit, created_at, expires_at, created_ip FROM links WHERE code = $1",
+  "query": "UPDATE links SET clicks = clicks + 1 WHERE code = $1\n                        AND (expires_at IS NULL OR expires_at >= NOW())\n                        AND (clicks_limit IS NULL OR clicks_limit >= clicks)\n            RETURNING *",
   "describe": {
     "columns": [
       {
@@ -82,12 +82,12 @@
       },
       {
         "ordinal": 7,
-        "name": "created_ip",
+        "name": "creator_ip",
         "type_info": "Varchar",
         "origin": {
           "Table": {
             "table": "links",
-            "name": "created_ip"
+            "name": "creator_ip"
           }
         }
       }
@@ -108,5 +108,5 @@
       false
     ]
   },
-  "hash": "7346920e0c5ac9fdad92392ea5565951795b47b7b49b1afb282487ab3c95c1d9"
+  "hash": "b72fe996be7657e5df9fa3e1c48041a8323ef09a698dff81bd35b8618d088503"
 }
