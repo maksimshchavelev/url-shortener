@@ -41,6 +41,10 @@ impl domain::LinkService for LinkService {
             return Err(Error::InvalidShortCodeLifetime);
         }
 
+        if clicks_limit.is_some_and(|value| value < 1) {
+            return Err(Error::InvalidShortCodeClicksLimit);
+        }
+
         let url = match Url::parse(&url.0) {
             Err(e) => {
                 info!(error = ?e, "Failed to parse provided URL");
@@ -364,5 +368,35 @@ mod tests {
             too_short_code.err().unwrap(),
             Error::InvalidShortCodeLifetime
         ));
+    }
+
+    #[tokio::test]
+    async fn cant_create_link_with_too_low_clicks_limit() {
+        let service = prepare_service(false);
+
+        let too_low_clicks = service
+            .create_short_code(
+                OriginalUrl("https://example.com".to_string()),
+                "192.168.0.1".to_string(),
+                Some(Duration::days(1)),
+                Some(0),
+            )
+            .await;
+
+        assert!(matches!(
+            too_low_clicks.err().unwrap(),
+            Error::InvalidShortCodeClicksLimit
+        ));
+
+        let ok_clicks = service
+            .create_short_code(
+                OriginalUrl("https://example.com".to_string()),
+                "192.168.0.1".to_string(),
+                Some(Duration::days(1)),
+                Some(1),
+            )
+            .await;
+
+        assert!(ok_clicks.is_ok());
     }
 }
