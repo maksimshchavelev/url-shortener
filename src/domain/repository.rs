@@ -27,7 +27,7 @@ pub struct FetchResult {
     pub url: OriginalUrl,
 
     /// IP that created short link
-    pub created_ip: String,
+    pub creator_ip: String,
 }
 
 /// Request to save short code with additional info
