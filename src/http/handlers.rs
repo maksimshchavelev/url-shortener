@@ -105,7 +105,7 @@ impl Handlers {
 
         info!(
             link = ?response,
-            "Discovering link"
+            "Discovering"
         );
 
         Ok(Json(response))
