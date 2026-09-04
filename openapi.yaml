@@ -3,8 +3,10 @@ openapi: 3.1.0
 info:
   title: URL Shortener API
   description: |
-    API for creating short URLs and redirecting users
-    to the original URLs.
+    API for creating, discovering, and resolving short URLs.
+
+    A short URL can optionally have a maximum number of clicks
+    and a custom lifetime.
   version: 1.0.0
 
 servers:
@@ -12,14 +14,20 @@ servers:
     description: Local development server
 
 paths:
-  /create:
+  /link:
     post:
       summary: Create a short URL
       description: |
-        Generates a unique short code for the provided URL.
+        Creates a short URL for the provided original URL.
 
-        The generated code can then be used with the
-        `/{code}` endpoint to redirect to the original URL.
+        The link can optionally have:
+        - a maximum number of clicks;
+        - a custom lifetime.
+
+        If lifetime_seconds is omitted, the link remains active
+        for 180 days.
+
+        The maximum allowed lifetime is 180 days.
       operationId: createShortUrl
 
       requestBody:
@@ -28,8 +36,18 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateLinkRequest'
-            example:
-              url: https://example.com/some/long/url
+            examples:
+              default:
+                summary: Create a link with default lifetime
+                value:
+                  url: https://example.com/some/long/url
+
+              withLimits:
+                summary: Create a link with click and lifetime limits
+                value:
+                  url: https://example.com/some/long/url
+                  clicks_limit: 100
+                  lifetime_seconds: 86400
 
       responses:
         '201':
@@ -43,7 +61,7 @@ paths:
                 code: aB3xK9qZ
 
         '400':
-          description: Invalid URL or short code
+          description: Invalid request
           content:
             application/problem+json:
               schema:
@@ -56,12 +74,19 @@ paths:
                     title: Invalid URL
                     detail: Provided URL is incorrect. Only http or https schemas are allowed and schema must be lower-cased
 
-                shortCodeTooLong:
-                  summary: Short code is too long
+                invalidLifetime:
+                  summary: Invalid lifetime
                   value:
-                    type: invalid_code
-                    title: Short code is too long
-                    detail: Provided short code is too long
+                    type: invalid_short_code_lifetime
+                    title: Invalid short code lifetime
+                    detail: Short code lifetime must be between 1 second and 180 days
+
+                invalidClicksLimit:
+                  summary: Invalid click limit
+                  value:
+                    type: invalid_short_code_clicks_limit
+                    title: Invalid short code clicks limit
+                    detail: Short code clicks limit must be at least 1
 
         '409':
           description: Generated short code already exists
@@ -96,25 +121,80 @@ paths:
                 title: Internal Server Error
                 detail: An unexpected error occurred on the server. Please try again later.
 
+  /link/{code}:
+    get:
+      summary: Discover a short URL
+      description: |
+        Returns information about a short URL without redirecting.
+
+        The response contains the original URL, short code,
+        click count, optional click limit, creation time,
+        and optional expiration time.
+      operationId: discoverShortUrl
+
+      parameters:
+        - $ref: '#/components/parameters/ShortCode'
+
+      responses:
+        '200':
+          description: Short URL information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoverLinkResponse'
+              example:
+                url: https://example.com/some/long/url
+                code: aB3xK9qZ
+                clicks: 42
+                clicks_limit: 100
+                created_at: "2026-09-04T12:00:00Z"
+                expires_at: "2027-03-03T12:00:00Z"
+
+        '400':
+          description: Short code is too long
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: invalid_code
+                title: Short code is too long
+                detail: Provided short code is too long
+
+        '404':
+          description: Short code not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: url_not_found
+                title: URL not found
+                detail: The requested short code does not exist
+
+        '500':
+          description: Internal server error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              example:
+                type: internal
+                title: Internal Server Error
+                detail: An unexpected error occurred on the server. Please try again later.
+
   /{code}:
     get:
       summary: Redirect to the original URL
       description: |
-        Resolves a short code and redirects the client to the
-        corresponding original URL.
+        Resolves a short code and redirects the client to
+        the corresponding original URL.
 
         The endpoint returns a temporary redirect.
       operationId: redirectToOriginalUrl
 
       parameters:
-        - name: code
-          in: path
-          required: true
-          description: Short URL code
-          schema:
-            type: string
-            maxLength: 8
-            example: aB3xK9qZ
+        - $ref: '#/components/parameters/ShortCode'
 
       responses:
         '307':
@@ -162,6 +242,18 @@ paths:
                 detail: An unexpected error occurred on the server. Please try again later.
 
 components:
+  parameters:
+    ShortCode:
+      name: code
+      in: path
+      required: true
+      description: Short URL code
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 8
+        example: aB3xK9qZ
+
   schemas:
     CreateLinkRequest:
       type: object
@@ -170,12 +262,36 @@ components:
       properties:
         url:
           type: string
-          format: uri
           maxLength: 2048
           description: |
             Original URL that should be shortened.
             Only HTTP and HTTPS URLs are accepted.
           example: https://example.com/some/long/url
+
+        clicks_limit:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          description: |
+            Maximum number of clicks allowed for the link.
+            If omitted, the link has no click limit.
+          example: 100
+
+        lifetime_seconds:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          maximum: 15552000
+          description: |
+            Lifetime of the link in seconds.
+
+            If omitted, the lifetime is set to 180 days
+            (15552000 seconds).
+          example: 86400
 
     CreateLinkResponse:
       type: object
@@ -185,15 +301,71 @@ components:
       properties:
         url:
           type: string
-          format: uri
           description: Original URL
           example: https://example.com/some/long/url
 
         code:
           type: string
+          minLength: 1
           maxLength: 8
           description: Generated short code
           example: aB3xK9qZ
+
+    DiscoverLinkResponse:
+      type: object
+      required:
+        - url
+        - code
+        - clicks
+        - clicks_limit
+        - created_at
+        - expires_at
+      properties:
+        url:
+          type: string
+          description: Original URL
+          example: https://example.com/some/long/url
+
+        code:
+          type: string
+          minLength: 1
+          maxLength: 8
+          description: Short URL code
+          example: aB3xK9qZ
+
+        clicks:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Number of clicks received by the link
+          example: 42
+
+        clicks_limit:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 1
+          description: |
+            Maximum number of clicks allowed for the link.
+            Null means that the link has no click limit.
+          example: 100
+
+        created_at:
+          type: string
+          format: date-time
+          description: Time when the short URL was created
+          example: "2026-09-04T12:00:00Z"
+
+        expires_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: |
+            Time when the short URL expires.
+            Null means that the link does not have an expiration time.
+          example: "2027-03-03T12:00:00Z"
 
     ProblemDetails:
       type: object
@@ -215,4 +387,4 @@ components:
         detail:
           type: string
           description: Detailed explanation of the error
-          example: Provided URL is incorrect. Only http or https schemas are allowed and schema must be lower-cased
+          example: Provided URL is too long
