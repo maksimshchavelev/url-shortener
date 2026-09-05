@@ -39,8 +39,8 @@ impl Repository for PostgresRepository {
     async fn fetch(&self, code: ShortCode) -> Result<FetchResult, Error> {
         let record = sqlx::query!(
             "SELECT * FROM links WHERE code = $1
-                      AND (expires_at IS NULL OR expires_at >= NOW())
-                      AND (clicks_limit IS NULL OR clicks_limit >= clicks)",
+                      AND (expires_at IS NULL OR expires_at > NOW())
+                      AND (clicks_limit IS NULL OR clicks_limit > clicks)",
             code.0
         )
         .fetch_optional(&self.pool)
@@ -65,8 +65,8 @@ impl Repository for PostgresRepository {
     async fn fetch_for_click(&self, code: ShortCode) -> Result<FetchResult, Error> {
         let record = sqlx::query!(
             "UPDATE links SET clicks = clicks + 1 WHERE code = $1
-                        AND (expires_at IS NULL OR expires_at >= NOW())
-                        AND (clicks_limit IS NULL OR clicks_limit >= clicks)
+                        AND (expires_at IS NULL OR expires_at > NOW())
+                        AND (clicks_limit IS NULL OR clicks_limit > clicks)
             RETURNING *",
             code.0
         )
@@ -313,8 +313,15 @@ mod tests {
         repo.save(infinity_link).await.unwrap();
 
         // ---------- fetch ----------
-        assert!(repo.fetch(ShortCode("code1".to_string())).await.is_ok());
         assert!(repo.fetch(ShortCode("code2".to_string())).await.is_ok());
+
+        assert!(matches!(
+            repo.fetch(ShortCode("code1".to_string()))
+                .await
+                .err()
+                .unwrap(),
+            Error::URLNotFound
+        ));
 
         assert!(matches!(
             repo.fetch(ShortCode("code3".to_string()))
@@ -445,7 +452,7 @@ mod tests {
 
         not_exceeded_req.code = ShortCode("code4".to_string());
         not_exceeded_req.clicks_limit = Some(10);
-        not_exceeded_req.clicks = 10;
+        not_exceeded_req.clicks = 9;
 
         // ---------- tests ----------
         let repo = PostgresRepository { pool };
