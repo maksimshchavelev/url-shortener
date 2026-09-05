@@ -47,7 +47,7 @@ impl IntoResponse for Error {
                 "invalid_option".to_string(),
                 self.to_string(),
                 StatusCode::BAD_REQUEST,
-                "Invalid short code lifetime".to_string()
+                "The lifetime must be greater than 0 seconds and less than 180 days".to_string()
             ),
 
             Error::InvalidShortCodeClicksLimit => (
