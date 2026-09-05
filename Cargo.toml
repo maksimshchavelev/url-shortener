@@ -17,3 +17,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dotenvy = "0.15"
 url = "2.5.8"
 chrono = {version = "0.4.45", features = ["serde"]}
+axum-prometheus = "0.10.1"
+metrics = "0.24.6"
