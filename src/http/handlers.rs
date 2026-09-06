@@ -15,6 +15,7 @@ impl Handlers {
     /// Handle create short code request
     #[instrument(skip(state, request, ip), fields(
         url_len = request.url.len(),
+        url = truncate_with_ellipsis(&request.url, 32),
         lifetime_seconds = request.lifetime_seconds,
         clicks_limit = request.clicks_limit))]
     pub async fn handle_create(
@@ -22,11 +23,8 @@ impl Handlers {
         Extension(ip): Extension<ClientIP>,
         Json(request): Json<CreateLinkRequest>,
     ) -> Result<Response, Error> {
-        debug!(
-            original_url = truncate_with_ellipsis(&request.url, 80),
-            "Got URL"
-        );
-
+        debug!(url = truncate_with_ellipsis(&request.url, 128), "Got URL");
+        
         let code = state
             .link_service
             .create_short_code(
@@ -53,16 +51,15 @@ impl Handlers {
     }
 
     /// Handle redirect request
-    #[instrument(skip(state, code), fields(code_len = code.len()))]
+    #[instrument(skip(state, code), fields(
+        code_len = code.len(),
+        short_code = truncate_with_ellipsis(&code, 16)))]
     pub async fn handle_redirect(
         Path(code): Path<String>,
         State(state): State<Arc<AppState>>,
     ) -> Result<Redirect, Error> {
-        debug!(
-            short_code = truncate_with_ellipsis(&code, 64),
-            "Got short code"
-        );
-
+        debug!(short_code = truncate_with_ellipsis(&code, 96), "Got short code");
+        
         let url = state
             .link_service
             .fetch_original_url(ShortCode(code.clone()))
@@ -78,16 +75,15 @@ impl Handlers {
     }
 
     /// Handles discover request
-    #[instrument(skip(state, code), fields(code_len = code.len()))]
+    #[instrument(skip(state, code), fields(
+        code_len = code.len(),
+        short_code = truncate_with_ellipsis(&code, 16)))]
     pub async fn handle_discover(
         Path(code): Path<String>,
         State(state): State<Arc<AppState>>,
     ) -> Result<Json<DiscoverLinkResponse>, Error> {
-        debug!(
-            short_code = truncate_with_ellipsis(&code, 64),
-            "Got short code"
-        );
-
+        debug!(short_code = truncate_with_ellipsis(&code, 96), "Got short code");
+        
         let link = state
             .link_service
             .discover(ShortCode(code))
