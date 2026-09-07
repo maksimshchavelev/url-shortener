@@ -114,8 +114,8 @@ mod tests {
     use crate::domain::{FetchResult, LinkService as _};
     use crate::domain::{SaveRequest, ShortCode};
     use async_trait::async_trait;
-    use std::collections::HashMap;
     use chrono::DateTime;
+    use std::collections::HashMap;
     use tokio::sync::Mutex;
 
     /// Represents TestRepository record
@@ -123,7 +123,7 @@ mod tests {
     struct Record {
         clicks: i64,
         url: OriginalUrl,
-        expires_at: Option<DateTime<Utc>>
+        expires_at: Option<DateTime<Utc>>,
     }
 
     /// Stores links in memory (for testing)
@@ -189,7 +189,7 @@ mod tests {
                 Record {
                     url: request.url,
                     clicks: 0,
-                    expires_at: request.expires_at
+                    expires_at: request.expires_at,
                 },
             );
             Ok(())
@@ -203,6 +203,11 @@ mod tests {
         /// Just returns 1234
         async fn cleanup_links_exceeded_clicks_limit(&self) -> Result<u64, Error> {
             Ok(1234)
+        }
+
+        /// Just returns 0
+        async fn links_count(&self) -> Result<u64, Error> {
+            Ok(0)
         }
     }
 

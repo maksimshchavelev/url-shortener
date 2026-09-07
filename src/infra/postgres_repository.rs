@@ -129,6 +129,14 @@ impl Repository for PostgresRepository {
 
         Ok(res.rows_affected())
     }
+
+    async fn links_count(&self) -> Result<u64, Error> {
+        sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM links"#)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(Error::from_internal)
+            .map(|value| value as u64)
+    }
 }
 
 #[cfg(test)]
@@ -487,4 +495,23 @@ mod tests {
         assert!(repo.fetch(ShortCode("code3".to_string())).await.is_ok());
         assert!(repo.fetch(ShortCode("code4".to_string())).await.is_ok());
     }
+
+    #[sqlx::test]
+    async fn links_count_changes(pool: PgPool) {
+        let repo = PostgresRepository { pool };
+
+        let code = ShortCode("code".to_string());
+        let url = OriginalUrl("example.com".to_string());
+
+        let req = request(code.clone(), url);
+
+        // -- test --
+        assert_eq!(repo.links_count().await.unwrap(), 0);
+
+        let save_result = repo.save(req).await;
+        assert!(save_result.is_ok());
+
+        assert_eq!(repo.links_count().await.unwrap(), 1);
+    }
+
 }

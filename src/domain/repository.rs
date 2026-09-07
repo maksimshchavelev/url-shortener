@@ -84,4 +84,9 @@ pub trait Repository: Send + Sync {
     /// # Returns
     /// Count of removed links or `domain::Error`
     async fn cleanup_links_exceeded_clicks_limit(&self) -> Result<u64, Error>;
+
+    /// Count of links stored in repository
+    /// # Returns
+    /// Count or `domain::Error`
+    async fn links_count(&self) -> Result<u64, Error>;
 }
