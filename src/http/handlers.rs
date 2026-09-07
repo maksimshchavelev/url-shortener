@@ -15,7 +15,8 @@ pub struct Handlers;
 
 impl Handlers {
     /// Handle create short code request
-    #[instrument(skip(state, request, ip), fields(
+    #[instrument(level = "error",
+        skip(state, request, ip), fields(
         url_len = request.url.len(),
         url = truncate_with_ellipsis(&request.url, 32),
         lifetime_seconds = request.lifetime_seconds,
@@ -53,7 +54,8 @@ impl Handlers {
     }
 
     /// Handle redirect request
-    #[instrument(skip(state, code), fields(
+    #[instrument(level = "error", 
+        skip(state, code), fields(
         code_len = code.len(),
         short_code = truncate_with_ellipsis(&code, 16)))]
     pub async fn handle_redirect(
@@ -80,7 +82,8 @@ impl Handlers {
     }
 
     /// Handles discover request
-    #[instrument(skip(state, code), fields(
+    #[instrument(level = "error",
+        skip(state, code), fields(
         code_len = code.len(),
         short_code = truncate_with_ellipsis(&code, 16)))]
     pub async fn handle_discover(
