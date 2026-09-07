@@ -167,6 +167,10 @@ server {
 
 		proxy_http_version 1.1;
 	}
+	
+	location /metrics {
+	    return 403;
+	}
 }
 ```
 
