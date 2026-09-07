@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM links WHERE code = $1\n                      AND (expires_at IS NULL OR expires_at >= NOW())\n                      AND (clicks_limit IS NULL OR clicks_limit >= clicks)",
+  "query": "SELECT * FROM links WHERE code = $1\n                      AND (expires_at IS NULL OR expires_at > NOW())\n                      AND (clicks_limit IS NULL OR clicks_limit > clicks)",
   "describe": {
     "columns": [
       {
@@ -108,5 +108,5 @@
       false
     ]
   },
-  "hash": "3b853f74ae17e2ef800a41d987f04db5e526a3a65413a5a22207229c876494f6"
+  "hash": "16e8272b0536ff0871ba5ba35f03b279a2abfd8806b16a9301a15b3a75283c06"
 }
