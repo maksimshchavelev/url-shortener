@@ -3,7 +3,7 @@ use axum::body::Body;
 use axum::http::StatusCode;
 use axum::{extract::ConnectInfo, extract::Request, middleware::Next, response::Response};
 use std::net::SocketAddr;
-use tracing::{Instrument, info_span, error};
+use tracing::{Instrument, error_span, error};
 
 /// HTTP middlewares
 pub struct Middlewares;
@@ -25,7 +25,7 @@ impl Middlewares {
             }
         };
 
-        let span = info_span!("Request", client_ip = ip.0);
+        let span = error_span!("Request", client_ip = ip.0);
         next.run(request).instrument(span).await
     }
 
