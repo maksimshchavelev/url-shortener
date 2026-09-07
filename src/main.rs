@@ -1,6 +1,8 @@
 use axum::routing::{any, get, post};
 use axum::{Router, extract::DefaultBodyLimit, middleware};
+use axum_prometheus::PrometheusMetricLayer;
 use std::net::SocketAddr;
+use std::sync::atomic::Ordering;
 use std::{env, process, sync::Arc};
 use tokio::{net, signal, time};
 use tracing::{error, info};
@@ -14,6 +16,8 @@ async fn main() -> Result<(), domain::Error> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
+
+    let (prometheus_layer, prometheus_handle) = PrometheusMetricLayer::pair();
 
     // ----------- env -----------
     let database_url = env::var("SHORTENER_DATABASE_URL").unwrap_or_else(|e| {
@@ -48,17 +52,22 @@ async fn main() -> Result<(), domain::Error> {
 
     let generator = application::CodeGenerator::new();
     let link_service = application::LinkService::new(Box::new(generator), Box::new(repository));
-    let state = Arc::new(domain::AppState::new(Box::new(link_service)));
+    let state = Arc::new(domain::AppState::new(
+        Box::new(link_service),
+        prometheus_handle,
+    ));
 
     // ----------- routes -----------
     let app = Router::new()
         .route("/link", post(http::Handlers::handle_create))
         .route("/link/{code}", get(http::Handlers::handle_discover))
+        .route("/metrics", get(http::Handlers::metrics))
         .route("/{code}", any(http::Handlers::handle_redirect))
         .with_state(Arc::clone(&state))
         .layer(middleware::from_fn(http::Middlewares::ip_logger))
         .layer(middleware::from_fn(http::Middlewares::ip_extractor))
-        .layer(DefaultBodyLimit::max(1024 * 8));
+        .layer(DefaultBodyLimit::max(1024 * 8))
+        .layer(prometheus_layer);
 
     // ----------- server -----------
     let listener = net::TcpListener::bind(format!("{}:{}", server_listen_ip, server_port))
@@ -91,6 +100,24 @@ async fn main() -> Result<(), domain::Error> {
             }
         });
     }
+
+    {
+        let state = Arc::clone(&state);
+        tokio::spawn(async move {
+            let mut interval = time::interval(time::Duration::from_secs(30));
+
+            loop {
+                interval.tick().await;
+
+                match state.link_service.links_count().await {
+                    Ok(count) => state.links_count.store(count, Ordering::Release),
+                    Err(e) => error!(error = %e, "Failed to fetch links count"),
+                }
+            }
+        });
+    }
+
+    // ----------- running -----------
 
     info!(
         "Listening {server_listen_ip}:{server_port} with {database_connections} database connections"

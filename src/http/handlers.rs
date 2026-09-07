@@ -5,7 +5,9 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::{Extension, Json, extract::Path, extract::State};
 use chrono::Duration;
+use metrics;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use tracing::{debug, info, instrument};
 
 /// HTTP handlers
@@ -24,7 +26,7 @@ impl Handlers {
         Json(request): Json<CreateLinkRequest>,
     ) -> Result<Response, Error> {
         debug!(url = truncate_with_ellipsis(&request.url, 128), "Got URL");
-        
+
         let code = state
             .link_service
             .create_short_code(
@@ -58,8 +60,11 @@ impl Handlers {
         Path(code): Path<String>,
         State(state): State<Arc<AppState>>,
     ) -> Result<Redirect, Error> {
-        debug!(short_code = truncate_with_ellipsis(&code, 96), "Got short code");
-        
+        debug!(
+            short_code = truncate_with_ellipsis(&code, 96),
+            "Got short code"
+        );
+
         let url = state
             .link_service
             .fetch_original_url(ShortCode(code.clone()))
@@ -82,8 +87,11 @@ impl Handlers {
         Path(code): Path<String>,
         State(state): State<Arc<AppState>>,
     ) -> Result<Json<DiscoverLinkResponse>, Error> {
-        debug!(short_code = truncate_with_ellipsis(&code, 96), "Got short code");
-        
+        debug!(
+            short_code = truncate_with_ellipsis(&code, 96),
+            "Got short code"
+        );
+
         let link = state
             .link_service
             .discover(ShortCode(code))
@@ -105,6 +113,13 @@ impl Handlers {
         );
 
         Ok(Json(response))
+    }
+
+    /// Provides `metrics` endpoint for Prometheus
+    pub async fn metrics(State(state): State<Arc<AppState>>) -> Result<String, Error> {
+        let count = state.links_count.load(Ordering::Acquire);
+        metrics::gauge!("url_shortener_links_count").set(count as f64);
+        Ok(state.prometheus_handle.render())
     }
 }
 

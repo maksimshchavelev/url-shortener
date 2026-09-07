@@ -1,5 +1,6 @@
 use crate::domain::LinkService;
 use axum_prometheus::metrics_exporter_prometheus::PrometheusHandle;
+use std::sync::atomic::AtomicU64;
 
 /// Represents common application state
 pub struct AppState {
@@ -8,6 +9,9 @@ pub struct AppState {
 
     /// Prometheus handle
     pub prometheus_handle: PrometheusHandle,
+
+    /// Count of links
+    pub links_count: AtomicU64,
 }
 
 impl AppState {
@@ -16,6 +20,7 @@ impl AppState {
         Self {
             link_service,
             prometheus_handle,
+            links_count: AtomicU64::new(0),
         }
     }
 }
