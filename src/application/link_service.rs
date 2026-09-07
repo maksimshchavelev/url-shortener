@@ -105,6 +105,10 @@ impl domain::LinkService for LinkService {
 
         Ok(result)
     }
+
+    async fn links_count(&self) -> Result<u64, Error> {
+        self.repository.links_count().await
+    }
 }
 
 #[cfg(test)]
@@ -205,9 +209,9 @@ mod tests {
             Ok(1234)
         }
 
-        /// Just returns 0
+        /// Just returns 12345
         async fn links_count(&self) -> Result<u64, Error> {
-            Ok(0)
+            Ok(12345)
         }
     }
 
@@ -508,5 +512,11 @@ mod tests {
 
         let result = service.discover(code.clone()).await.unwrap();
         assert!(result.expires_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn links_count() {
+        let service = prepare_service(false);
+        assert_eq!(service.links_count().await.unwrap(), 12345);
     }
 }

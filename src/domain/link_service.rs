@@ -45,4 +45,9 @@ pub trait LinkService: Send + Sync {
     /// # Returns
     /// `CleanupResult` or `domain::Error`
     async fn cleanup(&self) -> Result<CleanupResult, Error>;
+
+    /// Get current count of links
+    /// # Returns
+    /// Count of links or `domain::Error`
+    async fn links_count(&self) -> Result<u64, Error>;
 }
