@@ -18,7 +18,7 @@ original URL.
 - [x] Logging at Various Levels
 - [x] Docker and Docker Compose support
 - [x] Nginx support (as reverse proxy)
-- [x] Exporting Prometheus metrics at `metrics` endpoint
+- [x] Exporting Prometheus metrics at `metrics` endpoint (see [Grafana Dashboard](grafana.json))
 
 ## What is the project's technology stack?
 
