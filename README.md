@@ -17,7 +17,8 @@ original URL.
 - [x] Ability to view statistics via a short link
 - [x] Logging at Various Levels
 - [x] Docker and Docker Compose support
-- [x] Nginx support (as proxy)
+- [x] Nginx support (as reverse proxy)
+- [x] Exporting Prometheus metrics at `metrics` endpoint
 
 ## What is the project's technology stack?
 
